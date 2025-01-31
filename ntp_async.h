@@ -1,4 +1,3 @@
-
 #ifndef NTP_ASYNC_H
 #define NTP_ASYNC_H
 
@@ -20,5 +19,11 @@ void ntp_async_start(void);
  * @brief Флаг: сейчас ли идёт синхронизация
  */
 extern volatile bool g_ntp_in_progress;
+
+/**
+ * @brief Возвращает текущий IP-адрес STA-интерфейса как строку вида "192.168.1.100".
+ *        Внутри использует статический буфер, поэтому не потокобезопасна.
+ */
+const char* wifi_get_ip_str(void);
 
 #endif // NTP_ASYNC_H

@@ -128,7 +128,6 @@ void display_start_time_timer(void) {
 // Эффект 1: пока подключаемся к Wi-Fi
 // ------------------------------------------------------
 void effect_1_connecting_wifi(void) {
-    // Ставим режим EFF1, чтобы таймер time_timer_cb не лез в display_buffer.
     g_display_mode = DISPLAY_MODE_EFF1;
 
     // Пример: мигаем все сегменты "8" -> clear, повторяем 5 раз
@@ -182,3 +181,54 @@ void effect_2_ntp_sync(void) {
 
     g_display_mode = DISPLAY_MODE_TIME;
 }
+
+// ------------------------------------------------------
+// Новая функция: бегущая строка из цифр
+// ------------------------------------------------------
+void display_scrolling_digits(const char *digits) {
+    // Если вдруг передали NULL или пустую строку — выходим
+    if (!digits || !digits[0]) {
+        return;
+    }
+
+    g_display_mode = DISPLAY_MODE_SCROLL;
+
+    // Собираем цифры и пробелы в локальный буфер
+    static const int MAX_SCROLL_DIGITS = 64; // или любое разумное ограничение
+    uint8_t scroll_buf[MAX_SCROLL_DIGITS];
+    int len = 0;
+
+    // Проходим по исходной строке:
+    while (*digits && (len < MAX_SCROLL_DIGITS)) {
+        if (*digits >= '0' && *digits <= '9') {
+            // Цифры 0..9
+            scroll_buf[len++] = (uint8_t)(*digits - '0');
+        } else if (*digits == ' ') {
+            // Пробел
+            // Используем код '10', который у нас в SEGMENT_CODES = 0b00000000 (clear)
+            scroll_buf[len++] = 10;
+        }
+        // Остальные символы игнорируем
+        digits++;
+    }
+
+    // Логика прокрутки:
+    // Шаги прокрутки (step) идут от 0 до (len + DIGIT_COUNT - 1).
+    // На каждом шаге мы показываем «окно» из 4 символов,
+    // смещаясь слева направо.
+    for (int step = 0; step < (len + DIGIT_COUNT); step++) {
+        for (int d = 0; d < DIGIT_COUNT; d++) {
+            int idx = step + d - (DIGIT_COUNT - 1);
+            if (idx < 0 || idx >= len) {
+                display_buffer[d] = 10; // clear (всё выключено)
+            } else {
+                display_buffer[d] = scroll_buf[idx];
+            }
+        }
+        sleep_ms(300); // Скорость прокрутки
+    }
+
+    // Возвращаемся в режим TIME
+    g_display_mode = DISPLAY_MODE_TIME;
+}
+
