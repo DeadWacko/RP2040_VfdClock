@@ -128,7 +128,6 @@ void display_start_time_timer(void) {
 // Эффект 1: пока подключаемся к Wi-Fi
 // ------------------------------------------------------
 void effect_1_connecting_wifi(void) {
-    // Ставим режим EFF1, чтобы таймер time_timer_cb не лез в display_buffer.
     g_display_mode = DISPLAY_MODE_EFF1;
 
     // Пример: мигаем все сегменты "8" -> clear, повторяем 5 раз
@@ -180,5 +179,49 @@ void effect_2_ntp_sync(void) {
     for (int d = 0; d < DIGIT_COUNT; d++) display_buffer[d] = 10;
     sleep_ms(300);
 
+    g_display_mode = DISPLAY_MODE_TIME;
+}
+
+// ------------------------------------------------------
+// Новая функция: бегущая строка из цифр
+// ------------------------------------------------------
+void display_scrolling_digits(const char *digits) {
+    // Если вдруг передали NULL или пустую строку — выходим
+    if (!digits || !digits[0]) {
+        return;
+    }
+
+    g_display_mode = DISPLAY_MODE_SCROLL;
+
+    // Собираем только цифры в локальный буфер
+    static const int MAX_SCROLL_DIGITS = 64; // или любое ограничение
+    uint8_t scroll_buf[MAX_SCROLL_DIGITS];
+    int len = 0;
+
+    while (*digits && len < MAX_SCROLL_DIGITS) {
+        if (*digits >= '0' && *digits <= '9') {
+            scroll_buf[len++] = *digits - '0';
+        }
+        digits++;
+    }
+    // Теперь у нас в scroll_buf лежат "сырые" цифры (0..9), длиной len
+
+    // Логика прокрутки:
+    // Шаги прокрутки (step) идут от 0 до (len + DIGIT_COUNT - 1).
+    // На каждом шаге мы отображаем окно из 4 символов (или меньше),
+    // постепенно сдвигаясь.
+    for (int step = 0; step < len + DIGIT_COUNT; step++) {
+        for (int d = 0; d < DIGIT_COUNT; d++) {
+            int idx = step + d - (DIGIT_COUNT - 1);
+            if (idx < 0 || idx >= len) {
+                display_buffer[d] = 10; // clear
+            } else {
+                display_buffer[d] = scroll_buf[idx];
+            }
+        }
+        sleep_ms(300); // Скорость прокрутки
+    }
+
+    // Восстанавливаем режим TIME
     g_display_mode = DISPLAY_MODE_TIME;
 }

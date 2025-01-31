@@ -9,9 +9,13 @@
 
 #include "lwip/pbuf.h"
 #include "lwip/udp.h"
+#include "lwip/netif.h"
+#include "lwip/ip4_addr.h"
 
 #include "ntp_async.h"
 
+// -----------------------------------------
+// Константы для NTP
 #define NTP_SERVER_IP          "195.123.221.21" 
 #define NTP_PORT               123
 #define NTP_MSG_LEN            48
@@ -20,11 +24,10 @@
 #define NTP_TIMEOUT_MS         5000
 
 volatile bool g_ntp_in_progress = false;
-
 static struct udp_pcb *g_ntp_pcb = NULL;
 static alarm_id_t g_ntp_timeout_alarm = 0;
 
-// Колбэк таймаута
+// ------------------ Вспомогательные колбэки ------------------
 static int64_t ntp_timeout_callback(alarm_id_t id, void *user_data) {
     printf("[NTP] Timeout!\n");
     g_ntp_in_progress = false;
@@ -61,7 +64,7 @@ static void ntp_recv_callback(void *arg,
                     .year  = (int16_t)(t->tm_year + 1900),
                     .month = (int8_t)(t->tm_mon + 1),
                     .day   = (int8_t)t->tm_mday,
-                    .dotw  = (int8_t)((t->tm_wday == 0)?7:t->tm_wday),
+                    .dotw  = (int8_t)((t->tm_wday == 0) ? 7 : t->tm_wday),
                     .hour  = (int8_t)t->tm_hour,
                     .min   = (int8_t)t->tm_min,
                     .sec   = (int8_t)t->tm_sec
@@ -97,9 +100,7 @@ static err_t ntp_send_request(const ip_addr_t *server_addr)
     return e;
 }
 
-// ------------------
-// Публичные функции
-// ------------------
+// ------------------ Публичные функции ------------------
 bool ntp_async_init(const char *ssid, const char *password)
 {
     if (cyw43_arch_init()) {
@@ -144,4 +145,21 @@ void ntp_async_start(void)
     }
     printf("[NTP] Request sent...\n");
     g_ntp_timeout_alarm = add_alarm_in_ms(NTP_TIMEOUT_MS, ntp_timeout_callback, NULL, false);
+}
+
+/**
+ * @brief Возвращает текущий IP-адрес (например, "192.168.1.100").
+ */
+const char* wifi_get_ip_str(void)
+{
+    // Статический буфер, чтобы можно было вернуть указатель.
+    static char ip_str[16] = "0.0.0.0";
+    // Достаём netif для STA-интерфейса:
+    struct netif *nf = &cyw43_state.netif[CYW43_ITF_STA];
+
+    // Если сеть не поднята, будет 0.0.0.0
+    if (nf) {
+        ip4addr_ntoa_r(netif_ip4_addr(nf), ip_str, sizeof(ip_str));
+    }
+    return ip_str;
 }

@@ -56,6 +56,12 @@ int main() {
 
     // 6) Запуск самого запроса (асинхронно)
     ntp_async_start();
+    
+    //Тест бегущей строки.
+    printf("My IP is: %s\n", wifi_get_ip_str());
+
+    //вызов бегущей строки цифр:
+    display_scrolling_digits("12345");
 
     // 7) Основной цикл — ничего не делаем, 
     //    Wi-Fi работает в background (threadsafe).

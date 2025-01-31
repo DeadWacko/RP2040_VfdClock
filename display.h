@@ -8,11 +8,13 @@
  * - TIME: показываем реальное время из RTC
  * - EFF1: эффект во время подключения к Wi-Fi
  * - EFF2: эффект во время NTP-синхронизации
+ * - SCROLL: эффект "бегущая строка" (числовая)
  */
 typedef enum {
     DISPLAY_MODE_TIME = 0,
     DISPLAY_MODE_EFF1,
-    DISPLAY_MODE_EFF2
+    DISPLAY_MODE_EFF2,
+    DISPLAY_MODE_SCROLL
 } display_mode_t;
 
 /**
@@ -42,5 +44,13 @@ void effect_1_connecting_wifi(void);
  * Блокирующий, ~несколько секунд.
  */
 void effect_2_ntp_sync(void);
+
+/**
+ * @brief Бегущая строка цифр (например "12345").
+ *        Во время прокрутки отключаем отображение реального времени,
+ *        в конце возвращаемся в режим TIME.
+ * @param digits - строка только из цифр ('0'...'9'), другие символы игнорируются.
+ */
+void display_scrolling_digits(const char *digits);
 
 #endif // DISPLAY_H
