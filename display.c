@@ -193,28 +193,34 @@ void display_scrolling_digits(const char *digits) {
 
     g_display_mode = DISPLAY_MODE_SCROLL;
 
-    // Собираем только цифры в локальный буфер
-    static const int MAX_SCROLL_DIGITS = 64; // или любое ограничение
+    // Собираем цифры и пробелы в локальный буфер
+    static const int MAX_SCROLL_DIGITS = 64; // или любое разумное ограничение
     uint8_t scroll_buf[MAX_SCROLL_DIGITS];
     int len = 0;
 
-    while (*digits && len < MAX_SCROLL_DIGITS) {
+    // Проходим по исходной строке:
+    while (*digits && (len < MAX_SCROLL_DIGITS)) {
         if (*digits >= '0' && *digits <= '9') {
-            scroll_buf[len++] = *digits - '0';
+            // Цифры 0..9
+            scroll_buf[len++] = (uint8_t)(*digits - '0');
+        } else if (*digits == ' ') {
+            // Пробел
+            // Используем код '10', который у нас в SEGMENT_CODES = 0b00000000 (clear)
+            scroll_buf[len++] = 10;
         }
+        // Остальные символы игнорируем
         digits++;
     }
-    // Теперь у нас в scroll_buf лежат "сырые" цифры (0..9), длиной len
 
     // Логика прокрутки:
     // Шаги прокрутки (step) идут от 0 до (len + DIGIT_COUNT - 1).
-    // На каждом шаге мы отображаем окно из 4 символов (или меньше),
-    // постепенно сдвигаясь.
-    for (int step = 0; step < len + DIGIT_COUNT; step++) {
+    // На каждом шаге мы показываем «окно» из 4 символов,
+    // смещаясь слева направо.
+    for (int step = 0; step < (len + DIGIT_COUNT); step++) {
         for (int d = 0; d < DIGIT_COUNT; d++) {
             int idx = step + d - (DIGIT_COUNT - 1);
             if (idx < 0 || idx >= len) {
-                display_buffer[d] = 10; // clear
+                display_buffer[d] = 10; // clear (всё выключено)
             } else {
                 display_buffer[d] = scroll_buf[idx];
             }
@@ -222,6 +228,7 @@ void display_scrolling_digits(const char *digits) {
         sleep_ms(300); // Скорость прокрутки
     }
 
-    // Восстанавливаем режим TIME
+    // Возвращаемся в режим TIME
     g_display_mode = DISPLAY_MODE_TIME;
 }
+
