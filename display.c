@@ -16,10 +16,16 @@ volatile display_mode_t g_display_mode = DISPLAY_MODE_TIME;
 #define DIGIT_COUNT   4
 #define FAST_REFRESH  120  // Гц
 
+volatile uint8_t display_brightness = 30    ; //яркость дисплея в %
+
+//добавлена поддержка изменения яркости дисплея. 
+
+
+
 static struct repeating_timer g_fast_timer;
 static struct repeating_timer g_time_timer;
 
-static volatile uint8_t display_buffer[DIGIT_COUNT] = {10,10,10,10};
+static volatile uint8_t display_buffer[DIGIT_COUNT] = {8,8,8,0};
 static volatile uint8_t current_digit = 0;
 
 /*
@@ -62,26 +68,34 @@ static void latch() {
     gpio_put(LATCH_PIN, 0);
 }
 
+static int64_t display_clear(alarm_id_t id, void *user_data){
+    shift_out(0x00);
+    shift_out(0x00);
+    latch();
+    return 0;
+
+}
+
 /**
  * Быстрая перерисовка (каждые ~2 мс),
  * Мультиплексирование четырёх разрядов.
  */
 static void display_update() {
-    // 1) Гасим
-    shift_out(0x00);
-    shift_out(0x00);
-    latch();
-
-    // 2) Включаем нужный разряд
+    // 1) Включаем нужный разряд
     shift_out(1 << current_digit);
     shift_out(SEGMENT_CODES[display_buffer[current_digit]]);
     latch();
 
-    // 3) Следующий разряд
+    // 2) Следующий разряд
     current_digit++;
     if (current_digit >= DIGIT_COUNT) {
         current_digit = 0;
     }
+    
+    
+    
+    add_alarm_in_us(((display_brightness * 2000) / 100), &display_clear, NULL, true);
+    
 }
 
 /**
@@ -111,13 +125,11 @@ static bool time_timer_cb(struct repeating_timer *t) {
     return true;
 }
 
-// ------------------------------------------------------
-// Публичные функции
-// ------------------------------------------------------
+
 void display_init(void) {
     init_gpio();
     // Запуск "быстрого" таймера ~120 Гц * 4 = 480 Гц
-    add_repeating_timer_ms((1000 / (FAST_REFRESH * DIGIT_COUNT)),
+    add_repeating_timer_us((1000000 / (FAST_REFRESH * DIGIT_COUNT)),
                            fast_timer_cb, NULL, &g_fast_timer);
 }
 
@@ -183,9 +195,7 @@ void effect_2_ntp_sync(void) {
     g_display_mode = DISPLAY_MODE_TIME;
 }
 
-// ------------------------------------------------------
-// Новая функция: бегущая строка из цифр
-// ------------------------------------------------------
+
 void display_scrolling_digits(const char *digits) {
     // Если вдруг передали NULL или пустую строку — выходим
     if (!digits || !digits[0]) {
@@ -195,12 +205,15 @@ void display_scrolling_digits(const char *digits) {
     g_display_mode = DISPLAY_MODE_SCROLL;
 
     // Собираем цифры, пробелы и точку в локальный буфер
-    static const int MAX_SCROLL_DIGITS = 64; // или любое разумное ограничение
+    static const int MAX_SCROLL_DIGITS = 64; 
     uint8_t scroll_buf[MAX_SCROLL_DIGITS];
     int len = 0;
 
     // Проходим по исходной строке:
     while (*digits && (len < MAX_SCROLL_DIGITS)) {
+        if(*digits == 0){
+            break;
+        }
         if (*digits >= '0' && *digits <= '9') {
             // Цифры 0..9
             scroll_buf[len++] = (uint8_t)(*digits - '0');  // 0..9
@@ -211,7 +224,7 @@ void display_scrolling_digits(const char *digits) {
             // Точка
             scroll_buf[len++] = 11;
         }
-        // Остальные символы игнорируем
+        // Остальные символы игнорируем(пока что)
         digits++;
     }
 
