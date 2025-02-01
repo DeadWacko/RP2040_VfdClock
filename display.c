@@ -25,7 +25,7 @@ static volatile uint8_t current_digit = 0;
 /*
  * Коды для сегментов (0..9 и clear=10)
  */
-static const uint8_t SEGMENT_CODES[11] = {
+static const uint8_t SEGMENT_CODES[12] = {
     0b01111011, // 0
     0b00000011, // 1
     0b01011110, // 2
@@ -36,7 +36,8 @@ static const uint8_t SEGMENT_CODES[11] = {
     0b01000011, // 7
     0b01111111, // 8
     0b01101111, // 9
-    0b00000000  // clear (10)
+    0b00000000,  // clear (10)
+    0b10000000  // point
 };
 
 static void init_gpio(void) {
@@ -193,7 +194,7 @@ void display_scrolling_digits(const char *digits) {
 
     g_display_mode = DISPLAY_MODE_SCROLL;
 
-    // Собираем цифры и пробелы в локальный буфер
+    // Собираем цифры, пробелы и точку в локальный буфер
     static const int MAX_SCROLL_DIGITS = 64; // или любое разумное ограничение
     uint8_t scroll_buf[MAX_SCROLL_DIGITS];
     int len = 0;
@@ -202,11 +203,13 @@ void display_scrolling_digits(const char *digits) {
     while (*digits && (len < MAX_SCROLL_DIGITS)) {
         if (*digits >= '0' && *digits <= '9') {
             // Цифры 0..9
-            scroll_buf[len++] = (uint8_t)(*digits - '0');
+            scroll_buf[len++] = (uint8_t)(*digits - '0');  // 0..9
         } else if (*digits == ' ') {
-            // Пробел
-            // Используем код '10', который у нас в SEGMENT_CODES = 0b00000000 (clear)
-            scroll_buf[len++] = 10;
+            // Пробел (clear)
+            scroll_buf[len++] = 10; 
+        } else if (*digits == '.') {
+            // Точка
+            scroll_buf[len++] = 11;
         }
         // Остальные символы игнорируем
         digits++;
@@ -214,8 +217,8 @@ void display_scrolling_digits(const char *digits) {
 
     // Логика прокрутки:
     // Шаги прокрутки (step) идут от 0 до (len + DIGIT_COUNT - 1).
-    // На каждом шаге мы показываем «окно» из 4 символов,
-    // смещаясь слева направо.
+    // На каждом шаге мы показываем «окно» из 4 символов (DIGIT_COUNT),
+    // сдвигаясь слева направо.
     for (int step = 0; step < (len + DIGIT_COUNT); step++) {
         for (int d = 0; d < DIGIT_COUNT; d++) {
             int idx = step + d - (DIGIT_COUNT - 1);
@@ -231,4 +234,5 @@ void display_scrolling_digits(const char *digits) {
     // Возвращаемся в режим TIME
     g_display_mode = DISPLAY_MODE_TIME;
 }
+
 

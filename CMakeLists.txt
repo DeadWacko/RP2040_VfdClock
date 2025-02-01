@@ -38,7 +38,8 @@ pico_sdk_init()
 add_executable(VfdClock 
 main.c 
 ntp_async.c
-display.c)
+display.c
+buttons.c)
 
 pico_set_program_name(VfdClock "VfdClock")
 pico_set_program_version(VfdClock "0.1")
