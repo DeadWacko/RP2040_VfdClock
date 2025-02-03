@@ -1,45 +1,81 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
+#include "hardware/rtc.h"
 
-#include "buttons.h"
-
-#define BUTTON_GPIO_1 16
-#define BUTTON_GPIO_2 17
-#define BUTTON_GPIO_3 18
-
+#include "display/display.h"
+#include "ntp_async.h"
+#include "wifi_credentials.h"
+/**
+ * Демонстрация:
+ * 1) Включаем эффект_1 (подключаемся к Wi-Fi)
+ * 2) Когда подключились — переходим к normal time
+ * 3) Сразу вызываем ntp_async_start(), 
+ *    перед этим (по желанию) запускаем effect_2. 
+ * 4) После эффекта_2 => возвращаемся к normal time.
+ * 5) Как только NTP придёт — RTC обновится.
+ * 
+ * Если хотите периодически вызывать ntp_async_start(),
+ * можно запустить repeating_timer, 
+ * либо вызывать вручную в while(true).
+ */ 
 int main() {
-    stdio_init_all();
+     stdio_init_all();
+    sleep_ms(2000);
+    led_init();
     sleep_ms(2000);
 
-    button_config_t button_configs[BUTTON_ID_COUNT] = {
-        {BUTTON_GPIO_1, 1000},
-        {BUTTON_GPIO_2, 1500},
-        {BUTTON_GPIO_3, 2000}
+
+
+    printf("\n=== NTP + Effects Demo ===\n");
+    // 1) Инициализируем RTC (задаём начальное время)
+    rtc_init();
+    datetime_t start_t = {
+        .year = 2025,
+        .month=2,
+        .day=20,
+        .dotw=2,
+        .hour=12,
+        .min=34,
+        .sec=0
     };
+    rtc_set_datetime(&start_t);
 
-    buttons_init(button_configs);
-    printf("Button system initialized.\n");
+    // 2) Инициализация дисплея
+    display_init();
+    display_start_time_timer();
 
-    //  Проверяем, были ли кнопки зажаты при старте
-    if (buttons_has_boot_event()) {
-        button_event_t event;
-        while ((event = buttons_get_event()) != BUTTON_EVENT_NONE) {
-            if (event >= BUTTON_EVENT_HOLD_ON_BOOT_1 && event <= BUTTON_EVENT_HOLD_ON_BOOT_3) {
-                printf("⚠ Button was HELD during startup: %s ⚠\n", button_event_to_string(event));
-            }
-        }
+    // 3) Эффект №1 (подключение Wi-Fi)
+    printf("[MAIN] Start effect_1 (Wi-Fi connect)\n");
+    effect_1_connecting_wifi();  // Блокирующая, ~3 сек
+
+    // 4) Инициализация Wi-Fi, NTP
+    if (!ntp_async_init(WIFI_SSID, WIFI_PASSWORD)) {
+        printf("[MAIN] Wi-Fi init failed or connect fail.\n");
+        while(true) { sleep_ms(1000); }
     }
 
-    while (1) {
-        buttons_update();
+    // 5) Эффект №2 (NTP sync)
+    printf("[MAIN] Start effect_2 (NTP sync)\n");
+    effect_2_ntp_sync();  // тоже блокирующая
 
-        button_event_t event;
-        while ((event = buttons_get_event()) != BUTTON_EVENT_NONE) {
-            printf("Button Event: %s\n", button_event_to_string(event));
-        }
+    // 6) Запуск самого запроса (асинхронно)
+    ntp_async_start();
+    
+    //Тест бегущей строки.
+    printf("My IP is: %s\n", wifi_get_ip_str());
 
-        sleep_ms(10);
+    //вызов бегущей строки цифр:
+    display_scrolling_digits("12345");
+    sleep_ms(4000);
+    display_set_dot_blinking(true);
+
+    sleep_ms(4000);
+
+
+    // 7) Основной цикл — ничего не делаем, 
+    //    Wi-Fi работает в background (threadsafe).
+    while(true) {
+        sleep_ms(1000);
     }
-
     return 0;
 }

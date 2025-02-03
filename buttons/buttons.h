@@ -12,7 +12,7 @@
 #define LOG_LEVEL_DEBUG  0  // Отладка, информация и ошибки
 
 #ifndef LOG_LEVEL
-#define LOG_LEVEL LOG_LEVEL_OFF  // Уровень логирования по умолчанию
+#define LOG_LEVEL LOG_LEVEL_DEBUG  // Уровень логирования по умолчанию
 #endif
 
 // Макросы логирования
@@ -50,18 +50,15 @@ typedef enum {
 
 // Конфигурация кнопки
 typedef struct {
-    uint32_t pin_gpio;
-    uint32_t long_press_ms;
+    uint32_t pin_gpio;       // GPIO-пин кнопки
+    uint32_t long_press_ms;  // Время длительного нажатия в мс
 } button_config_t;
 
-// Функции API
+// Функции для работы с кнопками
 void buttons_init(const button_config_t *configs);
 void buttons_update(void);
 button_event_t buttons_get_event(void);
 const char* button_event_to_string(button_event_t event);
-
-
-
-bool buttons_has_boot_event(void);  // Функция проверки событий при старте
+bool buttons_has_boot_event(void);  // Функция проверки удержания кнопки при старте
 
 #endif // BUTTONS_H
